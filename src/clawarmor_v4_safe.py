@@ -328,7 +328,7 @@ def self_check():
 
 
 def generate_defense_report(attacks, actions_taken):
-    """生成防御报告"""
+    """生成防御报告（纯文本版）"""
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     # 统计
@@ -381,10 +381,135 @@ def generate_defense_report(attacks, actions_taken):
     return body
 
 
-def send_email(subject, body):
-    """发送邮件"""
+def generate_html_report(attacks, actions_taken):
+    """生成HTML格式的防御报告（新增！）"""
+    current_time = datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')
+    
+    # 统计
+    total_attacks = sum(a['count'] for a in attacks.values())
+    blocked_ips = len([a for a in actions_taken if a['action'] == 'blocked'])
+    warned_ips = len([a for a in actions_taken if a['action'] == 'warned'])
+    
+    # 确定警报级别
+    if total_attacks > 10:
+        alert_level = "🔴 紧急"
+        alert_color = "#ff4444"
+    elif total_attacks > 0:
+        alert_level = "🟡 警告"
+        alert_color = "#ffaa00"
+    else:
+        alert_level = "🟢 正常"
+        alert_color = "#44aa44"
+    
+    # 生成攻击详情表格
+    attacks_html = ""
+    for ip, info in attacks.items():
+        users = ', '.join(info['users'])
+        attacks_html += f"""
+        <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 10px; font-family: monospace;">{ip}</td>
+            <td style="padding: 10px; text-align: center;">{info['count']}</td>
+            <td style="padding: 10px;">{users}</td>
+            <td style="padding: 10px; text-align: center;">{'是' if is_ip_whitelisted(ip) else '否'}</td>
+        </tr>
+        """
+    
+    html = f"""
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }}
+            .container {{ background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 30px; }}
+            .stats {{ display: flex; justify-content: space-around; margin: 20px 0; }}
+            .stat-box {{ text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; min-width: 120px; }}
+            .stat-number {{ font-size: 32px; font-weight: bold; color: #667eea; }}
+            table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+            th {{ background: #667eea; color: white; padding: 12px; text-align: left; }}
+            td {{ padding: 10px; }}
+            .footer {{ margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; font-size: 12px; color: #666; text-align: center; }}
+            .config-box {{ background: #e7f3ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🛡️ ClawArmor v4.1 智能防御报告</h1>
+                <p style="font-size: 20px; margin: 10px 0;">警报级别: <span style="color: {alert_color}; font-weight: bold;">{alert_level}</span></p>
+                <p>服务器: <strong>{SERVER_NAME}</strong> | 时间: {current_time}</p>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-number">{total_attacks}</div>
+                    <div>攻击次数</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" style="color: #ff4444;">{blocked_ips}</div>
+                    <div>已封禁IP</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" style="color: #ffaa00;">{warned_ips}</div>
+                    <div>已警告IP</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number" style="color: #44aa44;">{len(attacks)}</div>
+                    <div>攻击源</div>
+                </div>
+            </div>
+            
+            <h2>📊 攻击详情</h2>
+            <table>
+                <tr>
+                    <th>攻击IP</th>
+                    <th style="text-align: center;">攻击次数</th>
+                    <th>目标用户</th>
+                    <th style="text-align: center;">白名单</th>
+                </tr>
+                {attacks_html}
+            </table>
+            
+            <div class="config-box">
+                <h3>⚙️ 当前配置</h3>
+                <p><strong>自动封禁IP:</strong> {'✅ 开启' if DEFENSE_MODE['auto_block_ip'] else '❌ 关闭（仅警告）'}</p>
+                <p><strong>自动隔离文件:</strong> {'✅ 开启' if DEFENSE_MODE['auto_isolate_file'] else '❌ 关闭'}</p>
+                <p><strong>白名单IP数:</strong> {len(WHITELIST_IPS)} 个</p>
+                <p><strong>SSH生命线端口:</strong> {SSH_PORT or '自动检测'}</p>
+            </div>
+            
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffaa00;">
+                <h3>⚠️ 重要提示</h3>
+                <p>如果攻击频繁但自动防御未开启，建议：</p>
+                <ol>
+                    <li>确认攻击真实（检查: <code>lastb -i | head -20</code>）</li>
+                    <li>编辑配置文件开启 <code>auto_block_ip = True</code></li>
+                    <li>或手动封禁: <code>iptables -A INPUT -s [IP] -j DROP</code></li>
+                </ol>
+                <p><strong>解封IP:</strong> <code>iptables -D INPUT -s [IP] -j DROP</code></p>
+            </div>
+            
+            <div class="footer">
+                <p>此邮件由 ClawArmor v4.1 智能防御系统自动发送</p>
+                <p>发送时间: {current_time}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html
+
+
+def send_email(subject, body, html_body=None):
+    """发送邮件（支持HTML格式）"""
     try:
-        msg = MIMEText(body, "plain", "utf-8")
+        # 如果提供了HTML内容，使用HTML格式；否则使用纯文本
+        if html_body:
+            msg = MIMEText(html_body, "html", "utf-8")
+        else:
+            msg = MIMEText(body, "plain", "utf-8")
+            
         msg["From"] = formataddr(("ClawArmor Defense", SENDER_EMAIL))
         msg["To"] = formataddr(("Admin", RECEIVER_EMAIL))
         msg["Subject"] = subject
@@ -442,12 +567,16 @@ def main():
         else:
             actions_taken.append({'ip': ip, 'action': 'warned'})
     
-    # 步骤6：发送报告
+    # 步骤6：发送报告（纯文本 + HTML）
     if actions_taken:
         subject = f"🛡️ {SERVER_NAME} 防御报告 - {len(attacks)} 个攻击源"
+        # 生成纯文本报告（用于日志记录）
         body = generate_defense_report(attacks, actions_taken)
-        send_email(subject, body)
-        log(f"📧 防御报告已发送")
+        # 生成HTML报告（用于邮件发送）
+        html_body = generate_html_report(attacks, actions_taken)
+        # 发送HTML邮件
+        send_email(subject, body, html_body)
+        log(f"📧 HTML防御报告已发送")
 
 
 if __name__ == "__main__":
