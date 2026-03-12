@@ -1,0 +1,11 @@
+# ClawArmor 定时任务配置示例
+# 将此文件复制到 /etc/cron.d/clawarmor (需要 root 权限)
+
+# 每10分钟执行一次安全巡检
+*/10 * * * * root /usr/bin/python3 /opt/clawarmor/clawarmor.py >> /var/log/clawarmor.log 2>&1
+
+# 每日早8点发送状态报告
+0 8 * * * root /usr/bin/python3 /opt/clawarmor/clawarmor.py "每日巡检报告" "ClawArmor系统运行正常" "INFO"
+
+# 每周一凌晨2点深度扫描
+0 2 * * 1 root /usr/bin/python3 /opt/clawarmor/clawarmor.py "每周深度扫描" "开始执行全面安全检测..." "INFO"
