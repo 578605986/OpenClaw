@@ -21,13 +21,13 @@ from datetime import datetime
 # 请修改以下配置为您的实际信息
 
 # 发件邮箱配置 (QQ邮箱)
-SENDER_EMAIL = "578605986@qq.com"      # 您的QQ邮箱
-SENDER_PASSWORD = "qnsvdycqayyfbbcf"    # QQ邮箱授权码 (不是登录密码!)
+SENDER_EMAIL = "你的QQ邮箱@qq.com"      # 您的QQ邮箱
+SENDER_PASSWORD = "你的QQ邮箱授权码"    # QQ邮箱授权码 (不是登录密码!)
 SMTP_SERVER = "smtp.qq.com"
 SMTP_PORT = 465
 
 # 收件邮箱配置
-RECEIVER_EMAIL = "Luck-2026@outlook.com"  # 接收警报的邮箱
+RECEIVER_EMAIL = "你的邮箱@example.com"  # 接收警报的邮箱
 
 # 服务器标识 (用于多服务器区分)
 SERVER_NAME = "Server-1"  # 修改为: Server-1, Server-2, etc.
