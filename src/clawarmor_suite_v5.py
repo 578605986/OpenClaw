@@ -156,14 +156,15 @@ class DeepScanner:
         """执行全套深度扫描"""
         log("🔍 开始深度安全扫描...")
         
-        self.scan_file_integrity()      # 文件完整性检查
-        self.scan_backdoors()            # 后门检测
-        self.scan_webshells()            # WebShell检测
-        self.scan_rootkits()             # Rootkit检测
-        self.scan_suspicious_processes() # 可疑进程
-        self.scan_network_connections()  # 网络连接
-        self.scan_cron_jobs()            # 计划任务
-        self.scan_ssh_keys()             # SSH密钥
+        self.scan_file_integrity()       # 文件完整性检查
+        self.scan_backdoors()             # 后门检测
+        self.scan_webshells()             # WebShell检测
+        self.scan_rootkits()              # Rootkit检测
+        self.scan_suspicious_processes()  # 可疑进程
+        self.scan_network_connections()   # 网络连接
+        self.scan_cron_jobs()             # 计划任务
+        self.scan_ssh_keys()              # SSH密钥
+        self.scan_fail2ban_status()       # fail2ban状态检查（新增！）
         
         return self.threats
     
@@ -294,9 +295,50 @@ class DeepScanner:
                         "recommendation": f"检查进程: lsof -i :{port}"
                     })
     
+    def scan_fail2ban_status(self):
+        """检查 fail2ban 状态（如果已安装）"""
+        try:
+            # 检查 fail2ban 是否运行
+            result = subprocess.getoutput("systemctl is-active fail2ban 2>/dev/null || echo 'not-installed'")
+            
+            if result.strip() == "active":
+                # 获取被封禁的IP列表
+                banned_ips = subprocess.getoutput("fail2ban-client status sshd 2>/dev/null | grep 'Banned IP list'")
+                if banned_ips and "Banned IP list" in banned_ips:
+                    ips = banned_ips.split(":")[1].strip() if ":" in banned_ips else ""
+                    if ips and ips != "":
+                        self.threats.append({
+                            "type": "fail2ban 已封禁IP",
+                            "severity": "MEDIUM",
+                            "source_ip": "fail2ban",
+                            "target_user": "系统",
+                            "time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            "detail": f"fail2ban 已封禁的攻击IP: {ips}",
+                            "recommendation": "查看详情: fail2ban-client status sshd"
+                        })
+                        
+                # 获取 fail2ban 统计
+                stats = subprocess.getoutput("fail2ban-client status sshd 2>/dev/null")
+                if stats:
+                    # 解析当前禁止的IP数量
+                    pass  # 可以进一步解析统计信息
+                    
+            elif result.strip() == "not-installed":
+                self.threats.append({
+                    "type": "安全建议",
+                    "severity": "MEDIUM",
+                    "source_ip": "本地",
+                    "target_user": "系统",
+                    "time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    "detail": "未检测到 fail2ban，建议安装以获得实时防护",
+                    "recommendation": "安装: apt-get install fail2ban"
+                })
+                
+        except Exception as e:
+            log(f"检查 fail2ban 失败: {e}")
+    
     def scan_cron_jobs(self):
         """检查计划任务"""
-        cron_locations = [
             "/etc/crontab",
             "/etc/cron.d/",
             "/var/spool/cron/",
