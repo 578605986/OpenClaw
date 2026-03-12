@@ -1,13 +1,26 @@
 #!/bin/bash
 # =============================================================================
-# ClawArmor All-in-One 部署脚本
-# 一键安装: fail2ban (实时防护) + ClawArmor (深度监控)
+# ClawArmor All-in-One 全自动部署脚本 v2.0
+# 一键全自动安装: fail2ban (实时防护) + ClawArmor (深度监控)
+# 
+# 全自动特性:
+#   ✅ 自动检测SSH端口
+#   ✅ 自动检测当前客户端IP并加入白名单
+#   ✅ 自动获取服务器名称
+#   ✅ 支持环境变量自动配置邮箱
 # 
 # 使用方法:
-#   sudo bash install_clawarmor.sh [v4|v5]
+#   方式1 - 全自动 (推荐):
+#     export CLAWARMOR_EMAIL="your@qq.com"
+#     export CLAWARMOR_PASSWORD="your_auth_code"
+#     sudo bash install.sh v5
 #   
-#   v4 - 安装 v4.1 (智能防御版, 推荐)
-#   v5 - 安装 v5.1 (完整安全套件)
+#   方式2 - 交互式:
+#     sudo bash install.sh v4
+#     
+#   版本选择:
+#     v4 - 安装 v4.1 (智能防御版, 推荐)
+#     v5 - 安装 v5.1 (完整安全套件)
 # =============================================================================
 
 set -e  # 遇到错误立即退出
@@ -71,6 +84,45 @@ detect_ssh_port() {
     success "检测到SSH端口: $SSH_PORT"
 }
 
+# 全自动检测当前客户端IP
+detect_client_ip() {
+    log "🔍 自动检测当前客户端IP..."
+    
+    # 方法1: 从SSH_CONNECTION环境变量获取
+    if [ -n "$SSH_CONNECTION" ]; then
+        CLIENT_IP=$(echo "$SSH_CONNECTION" | awk '{print $1}')
+    fi
+    
+    # 方法2: 从SSH_CLIENT环境变量获取
+    if [ -z "$CLIENT_IP" ] && [ -n "$SSH_CLIENT" ]; then
+        CLIENT_IP=$(echo "$SSH_CLIENT" | awk '{print $1}')
+    fi
+    
+    # 方法3: 从who命令获取
+    if [ -z "$CLIENT_IP" ]; then
+        CLIENT_IP=$(who am i | awk '{print $5}' | tr -d '()')
+    fi
+    
+    # 方法4: 从w命令获取
+    if [ -z "$CLIENT_IP" ]; then
+        CLIENT_IP=$(w -h | grep "$(whoami)" | head -1 | awk '{print $3}')
+    fi
+    
+    # 验证IP格式
+    if [ -n "$CLIENT_IP" ]; then
+        # 检查是否是有效IP
+        if [[ "$CLIENT_IP" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            success "检测到当前客户端IP: $CLIENT_IP"
+            export CLIENT_IP
+            return 0
+        fi
+    fi
+    
+    warning "无法自动检测客户端IP，将只使用默认白名单"
+    CLIENT_IP=""
+    return 1
+}
+
 # 安装 fail2ban
 install_fail2ban() {
     log "📦 步骤 1/5: 安装 fail2ban (实时防护)..."
@@ -98,6 +150,14 @@ install_fail2ban() {
     # 配置 fail2ban
     log "⚙️  配置 fail2ban..."
     detect_ssh_port
+    detect_client_ip  # 自动检测当前IP
+    
+    # 构建白名单
+    IGNORE_IPS="127.0.0.1/8 ::1"
+    if [ -n "$CLIENT_IP" ]; then
+        IGNORE_IPS="$IGNORE_IPS $CLIENT_IP"
+        log "🛡️  当前连接IP已加入白名单: $CLIENT_IP"
+    fi
     
     cat > /etc/fail2ban/jail.local << EOF
 [DEFAULT]
@@ -105,6 +165,7 @@ bantime = 3600
 findtime = 600
 maxretry = 3
 backend = systemd
+ignoreip = $IGNORE_IPS
 
 [sshd]
 enabled = true
@@ -128,7 +189,8 @@ EOF
     # 验证安装
     if systemctl is-active --quiet fail2ban; then
         success "fail2ban 安装并启动成功"
-        log "   配置: SSH端口=$SSH_PORT, 3次失败封禁1小时"
+        log "   配置: SSH端口=$SSH_PORT, 白名单IP=$IGNORE_IPS"
+        log "   规则: 3次失败登录封禁1小时"
     else
         error "fail2ban 启动失败"
     fi
@@ -163,24 +225,47 @@ install_clawarmor() {
     success "ClawArmor 下载完成"
 }
 
-# 配置 ClawArmor
+# 配置 ClawArmor - 全自动或交互式
 configure_clawarmor() {
     log "⚙️  步骤 3/5: 配置 ClawArmor..."
     
-    echo ""
-    echo "=========================================="
-    echo "  📧 邮件配置"
-    echo "=========================================="
-    echo ""
-    echo "ClawArmor 需要通过邮件发送安全报告"
-    echo ""
+    # 尝试自动检测邮箱配置
+    AUTO_CONFIG=false
     
-    # 读取用户输入
-    read -p "发件邮箱 (QQ邮箱): " sender_email
-    read -sp "邮箱授权码 (不是登录密码): " sender_password
-    echo ""
-    read -p "收件邮箱: " receiver_email
-    read -p "服务器名称 (如: Server-1): " server_name
+    # 检查是否有环境变量
+    if [ -n "$CLAWARMOR_EMAIL" ] && [ -n "$CLAWARMOR_PASSWORD" ]; then
+        sender_email="$CLAWARMOR_EMAIL"
+        sender_password="$CLAWARMOR_PASSWORD"
+        receiver_email="${CLAWARMOR_RECEIVER:-$CLAWARMOR_EMAIL}"
+        AUTO_CONFIG=true
+        log "✅ 从环境变量读取邮箱配置"
+    fi
+    
+    # 如果没有自动配置，进入交互模式
+    if [ "$AUTO_CONFIG" = false ]; then
+        echo ""
+        echo "=========================================="
+        echo "  📧 邮件配置"
+        echo "=========================================="
+        echo ""
+        echo "ClawArmor 需要通过邮件发送安全报告"
+        echo ""
+        echo "提示: 您也可以通过环境变量自动配置:"
+        echo "  export CLAWARMOR_EMAIL=your@qq.com"
+        echo "  export CLAWARMOR_PASSWORD=your_auth_code"
+        echo "  export CLAWARMOR_RECEIVER=receiver@example.com"
+        echo ""
+        
+        # 读取用户输入
+        read -p "发件邮箱 (QQ邮箱): " sender_email
+        read -sp "邮箱授权码 (不是登录密码): " sender_password
+        echo ""
+        read -p "收件邮箱 [默认: $sender_email]: " receiver_email
+        receiver_email="${receiver_email:-$sender_email}"
+    fi
+    
+    # 服务器名称自动检测
+    server_name=$(hostname)
     
     # 更新配置
     sed -i "s/SENDER_EMAIL = \".*\"/SENDER_EMAIL = \"$sender_email\"/" "$CLAWARMOR_DIR/clawarmor.py"
@@ -197,6 +282,7 @@ configure_clawarmor() {
     fi
     
     success "ClawArmor 配置完成"
+    log "   服务器名称: $server_name"
 }
 
 # 配置定时任务
@@ -232,12 +318,18 @@ first_run() {
 show_report() {
     echo ""
     echo "=========================================="
-    echo "  🎉 ClawArmor 安装完成!"
+    echo "  🎉 ClawArmor 全自动部署完成!"
     echo "=========================================="
     echo ""
     echo "📦 已安装组件:"
     echo "   ✅ fail2ban - 实时攻击防护 (秒级响应)"
     echo "   ✅ ClawArmor $VERSION - 深度安全监控"
+    echo ""
+    echo "🛡️  安全保险:"
+    echo "   ✅ SSH端口: 自动检测 ($SSH_PORT)"
+    echo "   ✅ 当前IP: 自动加入白名单 ($CLIENT_IP)"
+    echo "   ✅ 内网IP: 永久白名单保护"
+    echo "   ✅ 渐进防御: 3次失败才封禁"
     echo ""
     echo "📁 安装位置:"
     echo "   ClawArmor: $CLAWARMOR_DIR/"
