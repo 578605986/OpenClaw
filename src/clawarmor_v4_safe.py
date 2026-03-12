@@ -26,7 +26,8 @@ RECEIVER_EMAIL = "你的邮箱@example.com"
 SERVER_NAME = "Server-1"
 
 # SSH端口（生命线，永远不会被封禁）
-SSH_PORT = 2222  # 根据您的实际端口修改
+# 默认自动检测，也可手动指定如：SSH_PORT = 22
+SSH_PORT = None  # None表示自动检测，程序会从系统读取实际端口
 
 # 白名单IP（永远不会被封禁，包括当前连接IP）
 WHITELIST_IPS = [
@@ -78,27 +79,44 @@ def get_current_client_ip():
 
 
 def get_lifeline_port():
-    """自动检测SSH生命线端口（永远保持开放）"""
+    """自动检测SSH生命线端口（永远保持开放）
+    检测优先级：
+    1. 如果 SSH_PORT 已手动设置，直接使用
+    2. 从 /etc/ssh/sshd_config 读取
+    3. 从运行中的 sshd 进程检测
+    4. 默认返回 22
+    """
+    global SSH_PORT
+    
+    # 如果用户手动设置了端口，直接使用
+    if SSH_PORT is not None and isinstance(SSH_PORT, int):
+        return SSH_PORT
+    
     try:
         # 方法1：从配置文件读取
         if os.path.exists('/etc/ssh/sshd_config'):
             with open('/etc/ssh/sshd_config', 'r') as f:
                 for line in f:
                     if 'Port' in line and not line.startswith('#'):
-                        port = re.search(r'Port\s+(\d+)', line)
-                        if port:
-                            return int(port.group(1))
+                        port_match = re.search(r'Port\s+(\d+)', line)
+                        if port_match:
+                            detected_port = int(port_match.group(1))
+                            SSH_PORT = detected_port  # 缓存结果
+                            return detected_port
         
         # 方法2：从进程检测
         result = subprocess.getoutput("ss -tlnp | grep sshd | head -1")
         if result:
             port_match = re.search(r':(\d+)', result)
             if port_match:
-                return int(port_match.group(1))
-    except:
-        pass
+                detected_port = int(port_match.group(1))
+                SSH_PORT = detected_port  # 缓存结果
+                return detected_port
+    except Exception as e:
+        log(f"自动检测SSH端口失败: {e}，使用默认22")
     
     # 默认返回22
+    SSH_PORT = 22
     return 22
 
 
