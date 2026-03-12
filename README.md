@@ -1,10 +1,11 @@
-# 🛡️ ClawArmor v2.0
+# 🛡️ ClawArmor v4.1
 
-**智能体安全防御系统 - Intelligent Agent Security Defense System**
+**智能主动防御系统 - Intelligent Active Defense System**
 
 > 专为 OpenClaw/MOMOCLAW 智能体设计的服务器安全防护方案
+> **核心特性：多重安全保险，绝不自伤，全自动SSH端口检测**
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/578605986/ClawArmor)
+[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](https://github.com/578605986/ClawArmor)
 [![Python](https://img.shields.io/badge/python-3.6+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
@@ -14,16 +15,26 @@
 
 | 特性 | 说明 |
 |:---|:---|
-| 📧 **邮件实时预警** | 检测到威胁立即发送邮件到管理员邮箱 |
+| 🧠 **智能主动防御** | 自动封禁攻击IP，隔离可疑文件（多重安全保险） |
+| 📧 **邮件实时预警** | 检测到威胁立即发送详细HTML报告到管理员邮箱 |
+| 🔍 **多维度检测** | 暴力破解、可疑文件、系统完整性、异常连接 |
 | 🤖 **智能体防护** | 专为 AI 智能体环境优化的安全检测 |
 | ⏰ **自动巡检** | 定时任务自动扫描，无需人工值守 |
-| 🔄 **双服务器同步** | 支持多台服务器统一监控 |
-| 🛡️ **威胁隔离** | 自动标记并隔离可疑文件 |
-| 📱 **零延迟通知** | 邮件秒级送达，不错过任何警报 |
+| 🛡️ **绝不自伤** | 自动检测SSH端口，当前连接IP永不被封 |
+| 🔄 **多服务器管理** | 支持多台服务器统一监控 |
+| 📱 **零依赖** | 仅Python标准库，开箱即用 |
 
 ---
 
 ## 🚀 快速开始
+
+### 版本选择
+
+| 版本 | 适用场景 | 文件 |
+|:---|:---|:---|
+| **v4.1 (推荐)** | 需要主动防御 + 全自动检测 | `clawarmor_v4_safe.py` |
+| v3.0 | 需要详细HTML报告 | `clawarmor_v3.py` |
+| v2.0 | 基础邮件预警 | `clawarmor.py` |
 
 ### 1. 安装依赖
 
@@ -31,30 +42,31 @@
 # 确保 Python 3.6+ 已安装
 python3 --version
 
-# 安装必需模块 (通常已内置)
-pip3 install smtplib email
+# 无需安装额外依赖，仅使用Python标准库
 ```
 
-### 2. 配置邮箱
+### 2. 下载并配置
 
-编辑 `src/clawarmor.py`，修改以下配置：
+```bash
+# 创建目录
+sudo mkdir -p /opt/clawarmor
 
+# 下载 v4.1 (推荐)
+wget -O /opt/clawarmor/clawarmor.py \
+  https://raw.githubusercontent.com/578605986/OpenClaw/main/src/clawarmor_v4_safe.py
+
+# 编辑配置（只需修改邮箱）
+sudo nano /opt/clawarmor/clawarmor.py
+```
+
+**只需修改这3行：**
 ```python
-# 发件邮箱 (QQ邮箱)
-SENDER_EMAIL = "您的QQ邮箱@qq.com"
-SENDER_PASSWORD = "您的QQ邮箱授权码"  # 不是登录密码!
-
-# 收件邮箱
-RECEIVER_EMAIL = "接收警报的邮箱@example.com"
-
-# 服务器名称
-SERVER_NAME = "Server-1"  # 用于区分多台服务器
+SENDER_EMAIL = "你的QQ邮箱@qq.com"
+SENDER_PASSWORD = "你的QQ邮箱授权码"
+RECEIVER_EMAIL = "接收邮箱@example.com"
 ```
 
-**如何获取 QQ 邮箱授权码？**
-1. 登录 QQ 邮箱网页版
-2. 设置 → 账户 → 开启 SMTP 服务
-3. 获取 16 位授权码 (不是邮箱密码!)
+**SSH端口自动检测，无需配置！**
 
 ### 3. 部署到服务器
 
@@ -183,16 +195,33 @@ def check_security_status():
 
 ## 📜 更新日志
 
+### v4.1.0 (2026-03-13)
+- ✨ **全自动SSH端口检测** - 无需手动配置，自动识别并保护SSH端口
+- ✨ 智能主动防御 - 自动封禁攻击IP，自动隔离可疑文件
+- ✨ 多重安全保险 - 当前连接IP永不被封，绝不自伤
+- ✨ 渐进式防御 - 5次失败才封禁，避免误判
+- 🛠️ 增强日志记录和防御数据持久化
+
+### v4.0.0 (2026-03-13)
+- ✨ 智能主动防御系统
+- ✨ 暴力破解检测 + 自动封禁
+- ✨ 可疑文件自动隔离
+- ✨ 系统完整性检查
+- ✨ 异常连接检测
+
+### v3.0.0 (2026-03-13)
+- ✨ 详细威胁分析
+- ✨ HTML格式精美报告
+- ✨ 可视化威胁统计（红/黄/绿风险等级）
+- ✨ 一键复制排查命令
+
 ### v2.0.0 (2026-03-12)
-- ✨ 新增邮件实时预警功能
-- ✨ 支持 Python 3.6+ 标准库 (无需额外依赖)
+- ✨ 邮件实时预警功能
+- ✨ 支持 Python 3.6+ 标准库
 - ✨ 支持 QQ 邮箱 SMTP
 - ✨ 支持多服务器部署
 - ✨ 支持命令行调用
 - 🛠️ 优化错误日志记录
-
-### v1.0.0 (Archived)
-- 基础安全检测功能
 
 ---
 
