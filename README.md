@@ -4,7 +4,7 @@
 
 > 专为 OpenClaw/MOMOCLAW 智能体设计的服务器安全防护方案
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/578605986/OpenClaw)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/578605986/ClawArmor)
 [![Python](https://img.shields.io/badge/python-3.6+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
@@ -114,7 +114,7 @@ send_security_alert(
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   服务器 1       │     │   服务器 2       │     │   更多服务器...  │
-│  (8.147.56.235) │     │ (39.104.101.225)│     │                 │
+│  (你的服务器IP)  │     │ (你的服务器IP)  │     │                 │
 └────────┬────────┘     └────────┬────────┘     └────────┬────────┘
          │                       │                       │
          ▼                       ▼                       ▼
@@ -136,7 +136,7 @@ send_security_alert(
                                ▼
                     ┌─────────────────────┐
                     │ 管理员邮箱           │
-                    │ (Luck-2026@outlook) │
+                    │ (你的邮箱@example.com) │
                     └─────────────────────┘
 ```
 
@@ -214,7 +214,7 @@ def check_security_status():
 
 ## 💬 联系方式
 
-- **GitHub Issues**: [提交问题](https://github.com/578605986/OpenClaw/issues)
+- **GitHub Issues**: [提交问题](https://github.com/578605986/ClawArmor/issues)
 - **飞书讨论**: 搜索 "ClawArmor" 技能
 
 ---
